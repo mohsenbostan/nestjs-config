@@ -15,7 +15,7 @@ import {
 } from './config.constants';
 import { ConfigService } from './config.service';
 import { ConfigFactory, ConfigModuleOptions } from './interfaces';
-import { ConfigFactoryKeyHost } from './utils';
+import { ConfigFactoryKeyHost, validateJoi, validateZod } from './utils';
 import { createConfigProvider } from './utils/create-config-factory.util';
 import { getRegistrationToken } from './utils/get-registration-token.util';
 import { mergeConfigObject } from './utils/merge-configs.util';
@@ -66,11 +66,25 @@ export class ConfigModule {
       this.assignVariablesToProcess(validatedConfig);
     } else if (options.validationSchema) {
       const validationOptions = this.getSchemaValidationOptions(options);
-      const { error, value: validatedConfig } =
-        options.validationSchema.validate(config, validationOptions);
-
+      let error, validatedConfig;
+      if ('validate' in options.validationSchema) {
+        ({ error, validatedConfig } = validateJoi(
+          options.validationSchema,
+          config,
+          validationOptions,
+        ));
+      } else if ('safeParse' in options.validationSchema) {
+        ({ error, validatedConfig } = validateZod(
+          options.validationSchema,
+          config,
+        ));
+      } else {
+        throw new Error(
+          'Invalid validation schema. Please use either Joi or Zod schema.',
+        );
+      }
       if (error) {
-        throw new Error(`Config validation error: ${error.message}`);
+        throw new Error(`Config validation error: ${error.message.trim()}`);
       }
       validatedEnvConfig = validatedConfig;
       this.assignVariablesToProcess(validatedConfig);
@@ -184,8 +198,12 @@ export class ConfigModule {
           config,
         );
         if (options.expandVariables) {
-          const expandOptions: DotenvExpandOptions = typeof options.expandVariables === 'object' ? options.expandVariables : {};
-          config = expand({ ...expandOptions, parsed: config }).parsed || config;
+          const expandOptions: DotenvExpandOptions =
+            typeof options.expandVariables === 'object'
+              ? options.expandVariables
+              : {};
+          config =
+            expand({ ...expandOptions, parsed: config }).parsed || config;
         }
       }
     }

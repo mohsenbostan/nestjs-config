@@ -45,7 +45,7 @@ export interface ConfigModuleOptions {
   validate?: (config: Record<string, any>) => Record<string, any>;
 
   /**
-   * Environment variables validation schema (Joi).
+   * Environment variables validation schema (Joi or Zod).
    */
   validationSchema?: any;
 

@@ -6,6 +6,7 @@ import { ConfigModule } from '../../lib/config.module';
 import { ConfigService } from '../../lib/config.service';
 import databaseConfig from './database.config';
 import nestedDatabaseConfig from './nested-database.config';
+import { z } from 'zod';
 
 type Config = {
   database: ConfigType<typeof databaseConfig> & {
@@ -98,7 +99,7 @@ export class AppModule {
       imports: [
         ConfigModule.forRoot({
           envFilePath: join(__dirname, '.env.expanded'),
-          expandVariables: { ignoreProcessEnv: true }
+          expandVariables: { ignoreProcessEnv: true },
         }),
       ],
     };
@@ -150,6 +151,32 @@ export class AppModule {
           validationSchema: Joi.object({
             PORT: Joi.number().required(),
             DATABASE_NAME: Joi.string().required(),
+          }),
+        }),
+      ],
+    };
+  }
+
+  static withZodSchemaValidation(
+    envFilePath?: string,
+    ignoreEnvFile?: boolean,
+  ): DynamicModule {
+    return {
+      module: AppModule,
+      imports: [
+        ConfigModule.forRoot({
+          envFilePath,
+          ignoreEnvFile,
+          validationSchema: z.object({
+            PORT: z.preprocess(input => {
+              const processed = z
+                .string()
+                .regex(/^\d+$/)
+                .transform(Number)
+                .safeParse(input);
+              return processed.success ? processed.data : input;
+            }, z.number()),
+            DATABASE_NAME: z.string(),
           }),
         }),
       ],
